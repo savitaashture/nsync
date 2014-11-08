@@ -6,13 +6,11 @@ import (
 	"net/url"
 	"strings"
 
-	RepRoutes "github.com/cloudfoundry-incubator/rep/routes"
 	"github.com/cloudfoundry-incubator/runtime-schema/cc_messages"
 	"github.com/cloudfoundry-incubator/runtime-schema/models"
 	SchemaRouter "github.com/cloudfoundry-incubator/runtime-schema/router"
 	"github.com/cloudfoundry/gunk/urljoiner"
 	"github.com/pivotal-golang/lager"
-	"github.com/tedsuo/rata"
 )
 
 const DockerScheme = "docker"
@@ -83,28 +81,10 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 		numFiles = &desiredApp.FileDescriptors
 	}
 
-	repRequests := rata.NewRequestGenerator(
-		"http://"+b.repAddrRelativeToExecutor,
-		RepRoutes.Routes,
-	)
+	var setup []models.ExecutorAction
+	var action, monitor models.ExecutorAction
 
-	healthyHook, err := repRequests.CreateRequest(
-		RepRoutes.LRPRunning,
-		rata.Params{
-			"process_guid": lrpGuid,
-
-			// these go away once rep is polling, rather than receiving callbacks
-			"index":         "PLACEHOLDER_INSTANCE_INDEX",
-			"instance_guid": "PLACEHOLDER_INSTANCE_GUID",
-		},
-		nil,
-	)
-	if err != nil {
-		return models.DesiredLRP{}, err
-	}
-
-	actions := []models.ExecutorAction{}
-	actions = append(actions, models.ExecutorAction{
+	setup = append(setup, models.ExecutorAction{
 		Action: models.DownloadAction{
 			From: circusURL,
 			To:   "/tmp/circus",
@@ -112,7 +92,7 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 	})
 
 	if desiredApp.DropletUri != "" {
-		actions = append(actions, models.ExecutorAction{
+		setup = append(setup, models.ExecutorAction{
 			Action: models.DownloadAction{
 				From:     desiredApp.DropletUri,
 				To:       ".",
@@ -121,37 +101,27 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 		})
 	}
 
-	actions = append(actions, models.Parallel(
-		models.ExecutorAction{
-			models.RunAction{
-				Path: "/tmp/circus/soldier",
-				Args: append(
-					[]string{"/app"},
-					desiredApp.StartCommand,
-					desiredApp.ExecutionMetadata,
-				),
-				Env: createLrpEnv(desiredApp.Environment.BBSEnvironment()),
-				ResourceLimits: models.ResourceLimits{
-					Nofile: numFiles,
-				},
+	action = models.ExecutorAction{
+		models.RunAction{
+			Path: "/tmp/circus/soldier",
+			Args: append(
+				[]string{"/app"},
+				desiredApp.StartCommand,
+				desiredApp.ExecutionMetadata,
+			),
+			Env: createLrpEnv(desiredApp.Environment.BBSEnvironment()),
+			ResourceLimits: models.ResourceLimits{
+				Nofile: numFiles,
 			},
 		},
-		models.ExecutorAction{
-			models.MonitorAction{
-				Action: models.ExecutorAction{
-					models.RunAction{
-						Path: "/tmp/circus/spy",
-						Args: []string{"-addr=:8080"},
-					},
-				},
-				HealthyThreshold:   1,
-				UnhealthyThreshold: 1,
-				HealthyHook: models.HealthRequest{
-					Method: healthyHook.Method,
-					URL:    healthyHook.URL.String(),
-				},
-			},
-		}))
+	}
+
+	monitor = models.ExecutorAction{
+		models.RunAction{
+			Path: "/tmp/circus/spy",
+			Args: []string{"-addr=:8080"},
+		},
+	}
 
 	return models.DesiredLRP{
 		Domain: "cf-apps",
@@ -178,7 +148,9 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 			SourceName: "App",
 		},
 
-		Actions: actions,
+		Setup:   &models.ExecutorAction{models.SerialAction{setup}},
+		Action:  &action,
+		Monitor: &monitor,
 	}, nil
 }
 

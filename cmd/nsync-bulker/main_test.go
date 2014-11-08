@@ -236,53 +236,45 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Domain:      "cf-apps",
 					Instances:   42,
 					Stack:       "some-stack",
-					Actions: []models.ExecutorAction{
-						{
-							Action: models.DownloadAction{
-								From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
-								To:       "/tmp/circus",
-								CacheKey: "",
-							},
-						},
-						{
-							Action: models.DownloadAction{
-								From:     "source-url-1",
-								To:       ".",
-								CacheKey: "droplets-process-guid-1",
-							},
-						},
-						models.Parallel(
-							models.ExecutorAction{
-								models.RunAction{
-									Path: "/tmp/circus/soldier",
-									Args: []string{"/app", "start-command-1", "execution-metadata-1"},
-									Env: []models.EnvironmentVariable{
-										{Name: "env-key-1", Value: "env-value-1"},
-										{Name: "env-key-2", Value: "env-value-2"},
-										{Name: "PORT", Value: "8080"},
-										{Name: "VCAP_APP_PORT", Value: "8080"},
-										{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
+					Setup: &models.ExecutorAction{
+						models.SerialAction{
+							[]models.ExecutorAction{
+								{
+									models.DownloadAction{
+										From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
+										To:       "/tmp/circus",
+										CacheKey: "",
 									},
-									ResourceLimits: models.ResourceLimits{Nofile: &nofile},
+								},
+								{
+									models.DownloadAction{
+										From:     "source-url-1",
+										To:       ".",
+										CacheKey: "droplets-process-guid-1",
+									},
 								},
 							},
-							models.ExecutorAction{
-								models.MonitorAction{
-									Action: models.ExecutorAction{
-										Action: models.RunAction{
-											Path: "/tmp/circus/spy",
-											Args: []string{"-addr=:8080"},
-										},
-									},
-									HealthyHook: models.HealthRequest{
-										Method: "PUT",
-										URL:    "http://127.0.0.1:20515/lrp_running/process-guid-1/PLACEHOLDER_INSTANCE_INDEX/PLACEHOLDER_INSTANCE_GUID",
-									},
-									HealthyThreshold:   1,
-									UnhealthyThreshold: 1,
-								},
+						},
+					},
+					Action: &models.ExecutorAction{
+						models.RunAction{
+							Path: "/tmp/circus/soldier",
+							Args: []string{"/app", "start-command-1", "execution-metadata-1"},
+							Env: []models.EnvironmentVariable{
+								{Name: "env-key-1", Value: "env-value-1"},
+								{Name: "env-key-2", Value: "env-value-2"},
+								{Name: "PORT", Value: "8080"},
+								{Name: "VCAP_APP_PORT", Value: "8080"},
+								{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
 							},
-						),
+							ResourceLimits: models.ResourceLimits{Nofile: &nofile},
+						},
+					},
+					Monitor: &models.ExecutorAction{
+						Action: models.RunAction{
+							Path: "/tmp/circus/spy",
+							Args: []string{"-addr=:8080"},
+						},
 					},
 					DiskMB:    1024,
 					MemoryMB:  256,
@@ -301,53 +293,45 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Domain:      "cf-apps",
 					Instances:   4,
 					Stack:       "some-stack",
-					Actions: []models.ExecutorAction{
-						{
-							Action: models.DownloadAction{
-								From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
-								To:       "/tmp/circus",
-								CacheKey: "",
-							},
-						},
-						{
-							Action: models.DownloadAction{
-								From:     "source-url-2",
-								To:       ".",
-								CacheKey: "droplets-process-guid-2",
-							},
-						},
-						models.Parallel(
-							models.ExecutorAction{
-								models.RunAction{
-									Path: "/tmp/circus/soldier",
-									Args: []string{"/app", "start-command-2", "execution-metadata-2"},
-									Env: []models.EnvironmentVariable{
-										{Name: "env-key-3", Value: "env-value-3"},
-										{Name: "env-key-4", Value: "env-value-4"},
-										{Name: "PORT", Value: "8080"},
-										{Name: "VCAP_APP_PORT", Value: "8080"},
-										{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
+					Setup: &models.ExecutorAction{
+						models.SerialAction{
+							[]models.ExecutorAction{
+								{
+									Action: models.DownloadAction{
+										From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
+										To:       "/tmp/circus",
+										CacheKey: "",
 									},
-									ResourceLimits: models.ResourceLimits{Nofile: &nofile},
+								},
+								{
+									Action: models.DownloadAction{
+										From:     "source-url-2",
+										To:       ".",
+										CacheKey: "droplets-process-guid-2",
+									},
 								},
 							},
-							models.ExecutorAction{
-								models.MonitorAction{
-									Action: models.ExecutorAction{
-										Action: models.RunAction{
-											Path: "/tmp/circus/spy",
-											Args: []string{"-addr=:8080"},
-										},
-									},
-									HealthyHook: models.HealthRequest{
-										Method: "PUT",
-										URL:    "http://127.0.0.1:20515/lrp_running/process-guid-2/PLACEHOLDER_INSTANCE_INDEX/PLACEHOLDER_INSTANCE_GUID",
-									},
-									HealthyThreshold:   1,
-									UnhealthyThreshold: 1,
-								},
+						},
+					},
+					Action: &models.ExecutorAction{
+						models.RunAction{
+							Path: "/tmp/circus/soldier",
+							Args: []string{"/app", "start-command-2", "execution-metadata-2"},
+							Env: []models.EnvironmentVariable{
+								{Name: "env-key-3", Value: "env-value-3"},
+								{Name: "env-key-4", Value: "env-value-4"},
+								{Name: "PORT", Value: "8080"},
+								{Name: "VCAP_APP_PORT", Value: "8080"},
+								{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
 							},
-						),
+							ResourceLimits: models.ResourceLimits{Nofile: &nofile},
+						},
+					},
+					Monitor: &models.ExecutorAction{
+						Action: models.RunAction{
+							Path: "/tmp/circus/spy",
+							Args: []string{"-addr=:8080"},
+						},
 					},
 					DiskMB:    2048,
 					MemoryMB:  512,
@@ -365,51 +349,43 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Domain:      "cf-apps",
 					Instances:   4,
 					Stack:       "some-stack",
-					Actions: []models.ExecutorAction{
-						{
-							Action: models.DownloadAction{
-								From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
-								To:       "/tmp/circus",
-								CacheKey: "",
-							},
-						},
-						{
-							Action: models.DownloadAction{
-								From:     "source-url-3",
-								To:       ".",
-								CacheKey: "droplets-process-guid-3",
-							},
-						},
-						models.Parallel(
-							models.ExecutorAction{
-								models.RunAction{
-									Path: "/tmp/circus/soldier",
-									Args: []string{"/app", "start-command-3", "execution-metadata-3"},
-									Env: []models.EnvironmentVariable{
-										{Name: "PORT", Value: "8080"},
-										{Name: "VCAP_APP_PORT", Value: "8080"},
-										{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
+					Setup: &models.ExecutorAction{
+						models.SerialAction{
+							[]models.ExecutorAction{
+								{
+									Action: models.DownloadAction{
+										From:     "http://file-server.com/v1/static/some-health-check.tar.gz",
+										To:       "/tmp/circus",
+										CacheKey: "",
 									},
-									ResourceLimits: models.ResourceLimits{Nofile: &nofile},
+								},
+								{
+									Action: models.DownloadAction{
+										From:     "source-url-3",
+										To:       ".",
+										CacheKey: "droplets-process-guid-3",
+									},
 								},
 							},
-							models.ExecutorAction{
-								models.MonitorAction{
-									Action: models.ExecutorAction{
-										Action: models.RunAction{
-											Path: "/tmp/circus/spy",
-											Args: []string{"-addr=:8080"},
-										},
-									},
-									HealthyHook: models.HealthRequest{
-										Method: "PUT",
-										URL:    "http://127.0.0.1:20515/lrp_running/process-guid-3/PLACEHOLDER_INSTANCE_INDEX/PLACEHOLDER_INSTANCE_GUID",
-									},
-									HealthyThreshold:   1,
-									UnhealthyThreshold: 1,
-								},
+						},
+					},
+					Action: &models.ExecutorAction{
+						models.RunAction{
+							Path: "/tmp/circus/soldier",
+							Args: []string{"/app", "start-command-3", "execution-metadata-3"},
+							Env: []models.EnvironmentVariable{
+								{Name: "PORT", Value: "8080"},
+								{Name: "VCAP_APP_PORT", Value: "8080"},
+								{Name: "VCAP_APP_HOST", Value: "0.0.0.0"},
 							},
-						),
+							ResourceLimits: models.ResourceLimits{Nofile: &nofile},
+						},
+					},
+					Monitor: &models.ExecutorAction{
+						Action: models.RunAction{
+							Path: "/tmp/circus/spy",
+							Args: []string{"-addr=:8080"},
+						},
 					},
 					DiskMB:    512,
 					MemoryMB:  128,
@@ -448,11 +424,9 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Domain:      "some-domain",
 					Stack:       "some-stack",
 					Instances:   1,
-					Actions: []models.ExecutorAction{
-						{
-							Action: models.RunAction{
-								Path: "reboot",
-							},
+					Action: &models.ExecutorAction{
+						Action: models.RunAction{
+							Path: "reboot",
 						},
 					},
 				}
