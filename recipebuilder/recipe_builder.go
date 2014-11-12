@@ -24,20 +24,18 @@ var ErrAppSourceMissing = errors.New("desired app missing both droplet_uri and d
 var ErrMultipleAppSources = errors.New("desired app contains both droplet_uri and docker_image; exactly one is required.")
 
 type RecipeBuilder struct {
-	repAddrRelativeToExecutor string
-	logger                    lager.Logger
-	circuses                  map[string]string
-	dockerCircusPath          string
-	fileServerURL             string
+	logger           lager.Logger
+	circuses         map[string]string
+	dockerCircusPath string
+	fileServerURL    string
 }
 
-func New(repAddrRelativeToExecutor string, circuses map[string]string, dockerCircusPath, fileServerURL string, logger lager.Logger) *RecipeBuilder {
+func New(circuses map[string]string, dockerCircusPath, fileServerURL string, logger lager.Logger) *RecipeBuilder {
 	return &RecipeBuilder{
-		repAddrRelativeToExecutor: repAddrRelativeToExecutor,
-		circuses:                  circuses,
-		logger:                    logger,
-		dockerCircusPath:          dockerCircusPath,
-		fileServerURL:             fileServerURL,
+		circuses:         circuses,
+		logger:           logger,
+		dockerCircusPath: dockerCircusPath,
+		fileServerURL:    fileServerURL,
 	}
 }
 
@@ -149,7 +147,7 @@ func (b *RecipeBuilder) Build(desiredApp cc_messages.DesireAppRequestFromCC) (mo
 		},
 
 		Setup:   &models.ExecutorAction{models.SerialAction{setup}},
-		Action:  &action,
+		Action:  action,
 		Monitor: &monitor,
 	}, nil
 }

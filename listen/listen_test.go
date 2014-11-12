@@ -92,7 +92,7 @@ var _ = Describe("Listen", func() {
 			Instances: 1,
 			Stack:     "stack-2",
 
-			Action: &models.ExecutorAction{
+			Action: models.ExecutorAction{
 				Action: models.RunAction{
 					Path: "ls",
 				},
@@ -160,7 +160,7 @@ var _ = Describe("Listen", func() {
 			Instances:  1,
 			Stack:      "stack-2",
 			RootFSPath: "docker:///docker.com/docker",
-			Action: &models.ExecutorAction{
+			Action: models.ExecutorAction{
 				Action: models.RunAction{
 					Path: "ls",
 				},

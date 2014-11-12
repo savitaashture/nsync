@@ -192,7 +192,6 @@ var _ = Describe("Syncing desired state with CC", func() {
 			Ω(err).ShouldNot(HaveOccurred())
 
 			builder := recipebuilder.New(
-				"some.rep.address",
 				map[string]string{"some-stack": "some-health-check.tar.gz"},
 				"the/docker/circus/path.tgz",
 				"http://file-server.com",
@@ -256,7 +255,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							},
 						},
 					},
-					Action: &models.ExecutorAction{
+					Action: models.ExecutorAction{
 						models.RunAction{
 							Path: "/tmp/circus/soldier",
 							Args: []string{"/app", "start-command-1", "execution-metadata-1"},
@@ -313,7 +312,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							},
 						},
 					},
-					Action: &models.ExecutorAction{
+					Action: models.ExecutorAction{
 						models.RunAction{
 							Path: "/tmp/circus/soldier",
 							Args: []string{"/app", "start-command-2", "execution-metadata-2"},
@@ -369,7 +368,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 							},
 						},
 					},
-					Action: &models.ExecutorAction{
+					Action: models.ExecutorAction{
 						models.RunAction{
 							Path: "/tmp/circus/soldier",
 							Args: []string{"/app", "start-command-3", "execution-metadata-3"},
@@ -424,7 +423,7 @@ var _ = Describe("Syncing desired state with CC", func() {
 					Domain:      "some-domain",
 					Stack:       "some-stack",
 					Instances:   1,
-					Action: &models.ExecutorAction{
+					Action: models.ExecutorAction{
 						Action: models.RunAction{
 							Path: "reboot",
 						},
