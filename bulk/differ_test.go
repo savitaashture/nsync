@@ -17,7 +17,9 @@ var _ = Describe("Differ", func() {
 
 		cancelChan  chan struct{}
 		desiredChan chan []cc_messages.CCDesiredAppFingerprint
+
 		missingChan chan []cc_messages.CCDesiredAppFingerprint
+		updatedChan chan []cc_messages.CCDesiredAppFingerprint
 
 		deleteList []string
 
@@ -43,7 +45,9 @@ var _ = Describe("Differ", func() {
 
 		cancelChan = make(chan struct{})
 		desiredChan = make(chan []cc_messages.CCDesiredAppFingerprint, 1)
+
 		missingChan = make(chan []cc_messages.CCDesiredAppFingerprint, 1)
+		updatedChan = make(chan []cc_messages.CCDesiredAppFingerprint, 1)
 	})
 
 	Context("when not cancelling", func() {
@@ -69,11 +73,13 @@ var _ = Describe("Differ", func() {
 					[]receptor.DesiredLRPResponse{existingLRP},
 					desiredChan,
 					missingChan,
+					updatedChan,
 				)
 			})
 
 			AfterEach(func() {
 				Eventually(missingChan).Should(BeClosed())
+				Eventually(updatedChan).Should(BeClosed())
 			})
 
 			Context("existing desired LRPs and desired apps are consistent", func() {
@@ -84,6 +90,7 @@ var _ = Describe("Differ", func() {
 
 				It("sends an empty slice across the missing channel", func() {
 					Eventually(missingChan).Should(Receive(ConsistOf([]cc_messages.CCDesiredAppFingerprint{})))
+					Eventually(updatedChan).Should(Receive(ConsistOf([]cc_messages.CCDesiredAppFingerprint{})))
 				})
 
 				It("returns an empty delete list", func() {
@@ -151,8 +158,12 @@ var _ = Describe("Differ", func() {
 					close(desiredChan)
 				})
 
-				It("treats the existing LRP as missing", func() {
-					Eventually(missingChan).Should(Receive(ConsistOf(fingerprint)))
+				It("treats the existing LRP as updated", func() {
+					Eventually(updatedChan).Should(Receive(ConsistOf(fingerprint)))
+				})
+
+				It("does not treat the LRP as missing", func() {
+					Eventually(missingChan).Should(Receive(BeEmpty()))
 				})
 
 				It("does not add the existing LRP to the delete list", func() {
@@ -175,6 +186,7 @@ var _ = Describe("Differ", func() {
 						[]receptor.DesiredLRPResponse{},
 						desiredChan,
 						missingChan,
+						updatedChan,
 					)
 					close(done)
 				}()
@@ -182,6 +194,7 @@ var _ = Describe("Differ", func() {
 
 			AfterEach(func() {
 				Eventually(missingChan).Should(BeClosed())
+				Eventually(updatedChan).Should(BeClosed())
 			})
 
 			It("continues to process the apps in batches", func() {
@@ -189,9 +202,11 @@ var _ = Describe("Differ", func() {
 
 				Eventually(desiredChan).Should(BeSent(desiredAppFingerprints))
 				Eventually(missingChan).Should(Receive())
+				Eventually(updatedChan).Should(Receive())
 
 				Eventually(desiredChan).Should(BeSent(desiredAppFingerprints))
 				Eventually(missingChan).Should(Receive())
+				Eventually(updatedChan).Should(Receive())
 
 				close(desiredChan)
 				Eventually(done).Should(BeClosed())
@@ -205,6 +220,7 @@ var _ = Describe("Differ", func() {
 			done = make(chan struct{})
 			desiredChan = make(chan []cc_messages.CCDesiredAppFingerprint)
 			missingChan = make(chan []cc_messages.CCDesiredAppFingerprint)
+			updatedChan = make(chan []cc_messages.CCDesiredAppFingerprint)
 
 			go func() {
 				deleteList = differ.Diff(
@@ -213,21 +229,48 @@ var _ = Describe("Differ", func() {
 					[]receptor.DesiredLRPResponse{},
 					desiredChan,
 					missingChan,
+					updatedChan,
 				)
 				close(done)
 			}()
 		})
 
-		Context("when waiting for desired fingerprints", func() {
-			It("exits when cancelled", func() {
-				close(cancelChan)
+		AfterEach(func() {
+			Eventually(missingChan).Should(BeClosed())
+			Eventually(updatedChan).Should(BeClosed())
+		})
 
+		Context("when waiting for desired fingerprints", func() {
+			BeforeEach(func() {
+				close(cancelChan)
+			})
+
+			It("exits when cancelled", func() {
 				Eventually(done).Should(BeClosed())
-				Eventually(missingChan).Should(BeClosed())
 			})
 
 			It("returns an empty delete list", func() {
+				Eventually(done).Should(BeClosed())
+
+				Ω(deleteList).Should(BeEmpty())
+			})
+		})
+
+		Context("when waiting to send updated fingerprints", func() {
+			BeforeEach(func() {
+				Eventually(desiredChan).Should(BeSent([]cc_messages.CCDesiredAppFingerprint{{
+					ProcessGuid: existingLRP.ProcessGuid,
+					ETag:        "updated-etag",
+				}}))
+
 				close(cancelChan)
+			})
+
+			It("exits when cancelled", func() {
+				Eventually(done).Should(BeClosed())
+			})
+
+			It("returns an empty delete list", func() {
 				Eventually(done).Should(BeClosed())
 
 				Ω(deleteList).Should(BeEmpty())
@@ -235,16 +278,16 @@ var _ = Describe("Differ", func() {
 		})
 
 		Context("when waiting to send missing fingerprints", func() {
-			It("exits when cancelled", func() {
+			BeforeEach(func() {
 				Eventually(desiredChan).Should(BeSent([]cc_messages.CCDesiredAppFingerprint{}))
 				close(cancelChan)
+			})
 
+			It("exits when cancelled", func() {
 				Eventually(done).Should(BeClosed())
-				Eventually(missingChan).Should(BeClosed())
 			})
 
 			It("returns an empty delete list", func() {
-				close(cancelChan)
 				Eventually(done).Should(BeClosed())
 
 				Ω(deleteList).Should(BeEmpty())

@@ -124,8 +124,12 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 	done := make(chan error)
 
 	fingerprintsFromCC := make(chan []cc_messages.CCDesiredAppFingerprint)
+
 	missingFingerprints := make(chan []cc_messages.CCDesiredAppFingerprint)
 	desireAppRequestsFromCC := make(chan []cc_messages.DesireAppRequestFromCC)
+
+	updatedFingerprints := make(chan []cc_messages.CCDesiredAppFingerprint)
+	//updateAppRequestsFromCC := make(chan []cc_messages.DesireAppRequestFromCC)
 
 	wg := &sync.WaitGroup{}
 	cancel := make(chan struct{})
@@ -147,7 +151,14 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 	go func() {
 		defer wg.Done()
 
-		deleteList := p.differ.Diff(logger, cancel, existing, fingerprintsFromCC, missingFingerprints)
+		deleteList := p.differ.Diff(
+			logger,
+			cancel,
+			existing,
+			fingerprintsFromCC,
+			missingFingerprints,
+			updatedFingerprints,
+		)
 
 		select {
 		case err, ok := <-fetchError:
@@ -166,6 +177,22 @@ func (p *Processor) sync(signals <-chan os.Signal, httpClient *http.Client) bool
 		err := p.fetcher.FetchDesiredApps(logger, cancel, missingFingerprints, desireAppRequestsFromCC, httpClient)
 		if err != nil {
 			notFresh <- struct{}{}
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+	NOOP_LOOP:
+		for {
+			select {
+			case <-cancel:
+				break NOOP_LOOP
+			case _, open := <-updatedFingerprints:
+				if !open {
+					break NOOP_LOOP
+				}
+			}
 		}
 	}()
 

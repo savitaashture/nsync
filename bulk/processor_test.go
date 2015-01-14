@@ -64,11 +64,15 @@ var _ = Describe("Processor", func() {
 			existing []receptor.DesiredLRPResponse,
 			desired <-chan []cc_messages.CCDesiredAppFingerprint,
 			missing chan<- []cc_messages.CCDesiredAppFingerprint,
+			updated chan<- []cc_messages.CCDesiredAppFingerprint,
 		) []string {
 			<-desired
 
 			missing <- []cc_messages.CCDesiredAppFingerprint{{}}
 			close(missing)
+
+			updated <- []cc_messages.CCDesiredAppFingerprint{}
+			close(updated)
 
 			return []string{"my-app-to-delete"}
 		}
@@ -199,11 +203,13 @@ var _ = Describe("Processor", func() {
 					existing []receptor.DesiredLRPResponse,
 					desired <-chan []cc_messages.CCDesiredAppFingerprint,
 					missing chan<- []cc_messages.CCDesiredAppFingerprint,
+					updated chan<- []cc_messages.CCDesiredAppFingerprint,
 				) []string {
 					defer GinkgoRecover()
 
 					Eventually(desired).Should(Receive(Equal([]cc_messages.CCDesiredAppFingerprint{{}})))
 					close(missing)
+					close(updated)
 
 					return []string{}
 				}

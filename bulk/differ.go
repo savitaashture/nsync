@@ -14,6 +14,7 @@ type Differ interface {
 		existing []receptor.DesiredLRPResponse,
 		desiredFingerprints <-chan []cc_messages.CCDesiredAppFingerprint,
 		missingFingerprints chan<- []cc_messages.CCDesiredAppFingerprint,
+		updatedFingerprints chan<- []cc_messages.CCDesiredAppFingerprint,
 	) []string
 }
 
@@ -29,12 +30,14 @@ func (d *differ) Diff(
 	existing []receptor.DesiredLRPResponse,
 	desiredFingerprints <-chan []cc_messages.CCDesiredAppFingerprint,
 	missingFingerprints chan<- []cc_messages.CCDesiredAppFingerprint,
+	updatedFingerprints chan<- []cc_messages.CCDesiredAppFingerprint,
 ) []string {
 	logger = logger.Session("diff")
 	logger.Info("starting")
 	defer logger.Info("finished")
 
 	defer close(missingFingerprints)
+	defer close(updatedFingerprints)
 
 	existingLRPs := organizeLRPsByProcessGuid(existing)
 
@@ -50,25 +53,36 @@ LOOP:
 			}
 
 			missing := []cc_messages.CCDesiredAppFingerprint{}
+			updated := []cc_messages.CCDesiredAppFingerprint{}
 
 			for _, fingerprint := range desired {
-				if desiredLRP, ok := existingLRPs[fingerprint.ProcessGuid]; ok {
+				desiredLRP, found := existingLRPs[fingerprint.ProcessGuid]
+				if found {
 					delete(existingLRPs, fingerprint.ProcessGuid)
+
 					if desiredLRP.Annotation == fingerprint.ETag {
 						continue
 					}
+
+					updated = append(updated, fingerprint)
+				} else {
+					missing = append(missing, fingerprint)
 				}
 
 				logger.Info("found-missing-or-stale-desired-lrp", lager.Data{
 					"guid": fingerprint.ProcessGuid,
 					"etag": fingerprint.ETag,
 				})
-
-				missing = append(missing, fingerprint)
 			}
 
 			select {
 			case missingFingerprints <- missing:
+			case <-cancel:
+				return []string{}
+			}
+
+			select {
+			case updatedFingerprints <- updated:
 			case <-cancel:
 				return []string{}
 			}
